@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.antoined</groupId>
-    <artifactId>vaadin-workspaces</artifactId>
+    <artifactId>vaadin-workspace</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 

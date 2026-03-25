@@ -1,0 +1,10 @@
+title: Test GridWorkspace simple navigation
+reporting: [ "junit", "screenshot" ]
+steps:
+  - Go to the demo webpage
+  - Navigate to cell (2, 1)
+  - Zoom to cell (0, 0)
+  - Navigate to cell (0, 1)
+acceptance:
+  - actual cells reached
+  - no errors
