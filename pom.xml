@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.antoined</groupId>
-    <artifactId>vaadin-workspace</artifactId>
+    <groupId>io.github.adumeige.vaadin-workspaces</groupId>
+    <artifactId>vaadin-workspaces</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 

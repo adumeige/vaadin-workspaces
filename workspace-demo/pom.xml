@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.antoined</groupId>
+        <groupId>io.github.adumeige.vaadin-workspaces</groupId>
         <artifactId>vaadin-workspaces</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
@@ -19,7 +19,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.antoined</groupId>
+            <groupId>io.github.adumeige.vaadin-workspaces</groupId>
             <artifactId>workspace-component</artifactId>
             <version>${project.version}</version>
         </dependency>
