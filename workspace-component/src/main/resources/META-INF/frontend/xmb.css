@@ -1,0 +1,31 @@
+/* State styling for XMediaBar. The viewport element owns position; these classes own emphasis. */
+workspace-viewport.xmb .xmb-category {
+    opacity: 0.55;
+    --ws-scale: 0.85;
+}
+workspace-viewport.xmb .xmb-category.xmb-active {
+    opacity: 1;
+    --ws-scale: 1;
+}
+workspace-viewport.xmb .xmb-item {
+    opacity: 0.6;
+    --ws-scale: 0.92;
+}
+workspace-viewport.xmb .xmb-item.xmb-focused {
+    opacity: 1;
+    --ws-scale: 1.06;
+    z-index: 1;
+    outline: 2px solid var(--lumo-primary-color, #1676f3);
+    outline-offset: 2px;
+}
+workspace-viewport.xmb .xmb-item.xmb-disabled {
+    opacity: 0.3;
+}
+workspace-viewport.xmb .xmb-item.xmb-collapsed {
+    opacity: 0;
+    pointer-events: none;
+    --ws-scale: 0.6;
+}
+workspace-viewport.xmb:focus-visible {
+    outline: none;
+}
