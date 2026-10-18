@@ -15,6 +15,7 @@ pannable, zoomable viewport moves over them. One generic client element, many la
 - Java 17
 - Maven
 - Vaadin 24.10, Spring Boot 3.5
+- Karibu DSL 2.5.0 (the Java 17-compatible line; 2.6+ targets Java 21 / Vaadin 25)
 
 ## Architecture
 
@@ -182,8 +183,8 @@ Two small modules make the workspaces and doodles first-class citizens of a kari
 no behaviour, only builders, so the Java API stays the single source of truth.
 
 ```kotlin
-import org.antoined.workspace.karibu.*
-import org.antoined.workspace.doodles.karibu.*
+import io.github.adumeige.vaadin.workspaces.karibu.*
+import io.github.adumeige.vaadin.workspaces.doodles.karibu.*
 
 verticalLayout {
     gridWorkspace(600, 400) {
@@ -250,3 +251,71 @@ mvn -pl workspace-demo spring-boot:run
 Routes: `/` home (a grid of tiles, one per view), `/grid` grid, `/xmb` cross media bar, `/cascade` cascading columns,
 `/strip` strip, `/free` free canvas, `/doodles` annotation layer. Every view has a floating Home button in its top-left corner.
 The screenshots in `docs/` were taken from these routes at 1280×800.
+
+## Maven Central
+
+The release workflow defaults to `1.1.0`, matching the current `1.1.0-SNAPSHOT` development line.
+After publication, these artifacts are available from Maven Central without credentials or a custom repository:
+
+| Group ID | Artifact ID |
+| --- | --- |
+| `io.github.adumeige.vaadin-workspaces` | `workspace-component` |
+| `io.github.adumeige.vaadin-workspaces` | `workspace-doodles` |
+| `io.github.adumeige.vaadin-workspaces` | `workspace-component-karibu` |
+| `io.github.adumeige.vaadin-workspaces` | `workspace-doodles-karibu` |
+
+```xml
+<dependency>
+    <groupId>io.github.adumeige.vaadin-workspaces</groupId>
+    <artifactId>workspace-component</artifactId>
+    <version>1.1.0</version>
+</dependency>
+```
+
+The parent POM is `io.github.adumeige.vaadin-workspaces:vaadin-workspaces` at the same version.
+The demo is built in CI but is excluded from publication.
+
+Packages now start with `io.github.adumeige.vaadin.workspaces` (including `.doodles`,
+`.karibu`, and `.doodles.karibu`). Update imports previously starting with `org.antoined.workspace`.
+Demo packages use `io.github.adumeige.vaadin.workspaces.demo`.
+
+## Publishing a release
+
+Configure these repository Actions secrets, as for the other migrated repositories:
+
+- `CENTRAL_USERNAME` and `CENTRAL_PASSWORD`: Sonatype Central user-token credentials.
+- `GPG_PRIVATE_KEY`: ASCII-armored private signing key.
+- `GPG_PASSPHRASE`: its passphrase.
+
+The `io.github.adumeige` namespace must be verified in Central and the signing public key
+must be available to Central. GitHub Packages, tags and Releases use the built-in
+`GITHUB_TOKEN`; no extra GitHub personal access token is required.
+
+1. Merge the migration PR and let CI pass on `main`.
+2. Open Actions → **Build and publish Vaadin Workspaces** → **Run workflow**.
+3. Select `main` and a new version, initially `1.1.0`.
+4. The workflow verifies the libraries, tests and production demo, creates a release commit
+   with versioned POMs, builds/signs once and waits for Central publication.
+5. It creates an annotated `v<version>` tag and draft GitHub Release, mirrors the exact
+   signed artifacts to GitHub Packages, attaches the POMs, JARs, sources and API documentation,
+   then makes the GitHub Release public. The tag points at the versioned release commit;
+   `main` retains its development snapshot version.
+
+Pushes and pull requests run verification only. Java 17 remains the minimum target.
+Java libraries include Javadoc; Kotlin DSL libraries include Dokka API documentation.
+
+### Recovering an interrupted release
+
+The `release-<version>` Actions artifact retains the signed Central bundle, release manifest
+and exact source commit for 90 days, including when Central publication fails or times out.
+If Central already published and only the GitHub job failed, rerun that GitHub job. It restores
+those artifacts, verifies any existing package files byte for byte, skips identical uploads,
+and resumes missing files. A conflicting existing artifact stops publication.
+
+Do not rerun the Central job or start a new release with the same version after Central has
+accepted it. If the Central job times out, inspect its deployment in Sonatype before retrying;
+publication may have completed there. Preserve/download the retained bundle before it expires.
+
+## License
+
+Apache License 2.0; see [LICENSE](LICENSE).

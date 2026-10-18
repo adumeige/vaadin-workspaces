@@ -12,6 +12,8 @@
 
     <artifactId>workspace-doodles</artifactId>
     <packaging>jar</packaging>
+    <name>Vaadin Workspace Doodles</name>
+    <description>Annotation and drawing layers for Vaadin workspace components.</description>
 
     <dependencies>
         <dependency>
@@ -62,4 +64,28 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>central-release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.12.0</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
+
