@@ -50,6 +50,7 @@
         <karibu.version>2.5.0</karibu.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <central.autoPublish>false</central.autoPublish>
+        <central.skipUpload>false</central.skipUpload>
         <central.waitUntil>validated</central.waitUntil>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <vaadin.version>24.10.0</vaadin.version>
@@ -135,11 +136,12 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.11.0</version>
+                        <version>0.12.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <autoPublish>${central.autoPublish}</autoPublish>
+                            <skipUpload>${central.skipUpload}</skipUpload>
                             <waitUntil>${central.waitUntil}</waitUntil>
                             <waitMaxTime>3600</waitMaxTime>
                             <deploymentName>${project.groupId}:${project.version}</deploymentName>
