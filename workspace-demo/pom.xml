@@ -12,6 +12,8 @@
 
     <artifactId>workspace-demo</artifactId>
     <packaging>jar</packaging>
+    <name>Vaadin Workspaces Demo</name>
+    <description>Demo application for Vaadin workspace components and doodles.</description>
 
     <properties>
         <kotlin.version>2.2.21</kotlin.version>
@@ -116,7 +118,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <mainClass>org.antoined.demo.ApplicationKt</mainClass>
+                    <mainClass>io.github.adumeige.vaadin.workspaces.demo.ApplicationKt</mainClass>
                 </configuration>
                 <executions>
                     <execution>
@@ -165,3 +167,4 @@
     </profiles>
 
 </project>
+
