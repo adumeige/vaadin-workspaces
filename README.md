@@ -15,6 +15,7 @@ pannable, zoomable viewport moves over them. One generic client element, many la
 - Java 17
 - Maven
 - Vaadin 24.10, Spring Boot 3.5
+- Karibu DSL 2.5.0 (the Java 17-compatible line; 2.6+ targets Java 21 / Vaadin 25)
 
 ## Architecture
 

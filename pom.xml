@@ -46,6 +46,8 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Karibu 2.6+ requires Java 21 / Vaadin 25. -->
+        <karibu.version>2.5.0</karibu.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <central.autoPublish>false</central.autoPublish>
         <central.waitUntil>validated</central.waitUntil>
