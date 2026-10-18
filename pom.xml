@@ -6,11 +6,14 @@
 
     <groupId>io.github.adumeige.vaadin-workspaces</groupId>
     <artifactId>vaadin-workspaces</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <modules>
         <module>workspace-component</module>
+        <module>workspace-doodles</module>
+        <module>workspace-component-karibu</module>
+        <module>workspace-doodles-karibu</module>
         <module>workspace-demo</module>
     </modules>
 

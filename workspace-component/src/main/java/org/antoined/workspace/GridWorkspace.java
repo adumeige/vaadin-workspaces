@@ -1,185 +1,120 @@
 package org.antoined.workspace;
 
 import com.vaadin.flow.component.Component;
-import com.vaadin.flow.component.Focusable;
 import com.vaadin.flow.component.ComponentEvent;
 import com.vaadin.flow.component.ComponentEventListener;
-import com.vaadin.flow.component.DomEvent;
-import com.vaadin.flow.component.EventData;
-import com.vaadin.flow.component.Tag;
-import com.vaadin.flow.component.dependency.JsModule;
-import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.shared.Registration;
+import org.antoined.workspace.layout.GridCell;
+import org.antoined.workspace.layout.GridLayout;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-@Tag("grid-workspace-view")
-@JsModule("./grid-workspace-view.ts")
-public class GridWorkspace extends Component implements Focusable<GridWorkspace> {
+/**
+ * A leaf: {@link Workspace} + {@link GridLayout} + grid navigation behaviours.
+ * Cells sit on a regular grid; arrow keys move one cell at a time, clamped to the occupied extent.
+ */
+public class GridWorkspace extends Workspace<GridCell> {
 
-    private int cellWidth;
-    private int cellHeight;
-    private int cellMargin = 0;
-    private final Map<String, Div> cells = new HashMap<>();
+    private static final Map<String, Direction> ARROWS = Map.of(
+            "ArrowLeft", Direction.LEFT, "ArrowRight", Direction.RIGHT,
+            "ArrowUp", Direction.UP, "ArrowDown", Direction.DOWN);
+
+    private final GridLayout grid;
+    private GridCell current = new GridCell(0, 0);
 
     public GridWorkspace(int cellWidth, int cellHeight) {
-        this.cellWidth = cellWidth;
-        this.cellHeight = cellHeight;
-        getElement().getStyle()
-                .set("display", "block")
-                .set("position", "relative")
-                .set("overflow", "hidden");
-        getElement().setProperty("cellWidth", cellWidth);
-        getElement().setProperty("cellHeight", cellHeight);
-        getElement().setProperty("cellMargin", cellMargin);
-        getElement().setProperty("draggingEnabled", true);
-        getElement().setProperty("zoomingEnabled", true);
-        getElement().setAttribute("tabindex", "0");
+        super(new GridLayout(cellWidth, cellHeight, 0));
+        this.grid = (GridLayout) getLayout();
+        addViewChangedListener(e -> {
+            ViewState v = e.getView();
+            current = grid.cellAt(v.centerX(), v.centerY());
+            fireEvent(new CellFocusedEvent(this, e.isFromClient(), current.col(), current.row()));
+        });
     }
 
     public GridWorkspace() {
         this(320, 240);
     }
 
+    // ── Cells ────────────────────────────────────────────────────────────
+
     public GridWorkspace addCell(int col, int row, Component component) {
-        String key = col + "," + row;
-        // Remove existing cell at this position if any
-        removeCell(col, row);
-
-        Div wrapper = new Div(component);
-        wrapper.getElement().setAttribute("data-cell", "true");
-        wrapper.getElement().setAttribute("data-col", String.valueOf(col));
-        wrapper.getElement().setAttribute("data-row", String.valueOf(row));
-        wrapper.getStyle()
-                .set("position", "absolute")
-                .set("left", (col * (cellWidth + cellMargin)) + "px")
-                .set("top", (row * (cellHeight + cellMargin)) + "px")
-                .set("width", cellWidth + "px")
-                .set("height", cellHeight + "px")
-                .set("overflow", "hidden")
-                .set("box-sizing", "border-box");
-
-        cells.put(key, wrapper);
-        getElement().appendChild(wrapper.getElement());
+        addItem(new GridCell(col, row), component);
         return this;
     }
 
     public GridWorkspace removeCell(int col, int row) {
-        String key = col + "," + row;
-        Div existing = cells.remove(key);
-        if (existing != null) {
-            existing.getElement().removeFromParent();
-        }
+        removeItem(new GridCell(col, row));
         return this;
-    }
-
-    public void fitToCell(int col, int row) {
-        getElement().callJsFunction("fitToCell", (double) col, (double) row);
-    }
-
-    public void zoomToCell(int col, int row) {
-        getElement().callJsFunction("zoomToCell", (double) col, (double) row);
-    }
-
-    public void fitAll() {
-        getElement().callJsFunction("fitAll");
-    }
-
-    public GridWorkspace setInitialCell(int col, int row) {
-        getElement().setProperty("initialCol", col);
-        getElement().setProperty("initialRow", row);
-        return this;
-    }
-
-    public GridWorkspace setInitialFitAll() {
-        getElement().setProperty("initialFitAll", true);
-        return this;
-    }
-
-    public GridWorkspace setDraggingEnabled(boolean enabled) {
-        getElement().setProperty("draggingEnabled", enabled);
-        return this;
-    }
-
-    public GridWorkspace setZoomingEnabled(boolean enabled) {
-        getElement().setProperty("zoomingEnabled", enabled);
-        return this;
-    }
-
-    public void moveLeft()  { getElement().callJsFunction("moveLeft"); }
-    public void moveRight() { getElement().callJsFunction("moveRight"); }
-    public void moveUp()    { getElement().callJsFunction("moveUp"); }
-    public void moveDown()  { getElement().callJsFunction("moveDown"); }
-
-    /**
-     * Binds arrow keys on {@code scope} to pan the workspace by one cell step.
-     * Ignores key events when focus is on an interactive element (input, textarea, etc.).
-     * Call {@link #unbindArrowKeys(Component)} to remove the binding.
-     */
-    public void bindArrowKeys(Component scope) {
-        scope.getElement().executeJs("""
-            const ws = $0;
-            const handler = (e) => {
-                if (!e.key.startsWith('Arrow')) return;
-                if (ws.deepActiveIsInteractive()) return;
-                e.preventDefault();
-                if      (e.key === 'ArrowLeft')  ws.moveLeft();
-                else if (e.key === 'ArrowRight') ws.moveRight();
-                else if (e.key === 'ArrowUp')    ws.moveUp();
-                else if (e.key === 'ArrowDown')  ws.moveDown();
-            };
-            this._wsArrowHandler = handler;
-            this.addEventListener('keydown', handler);
-        """, getElement());
-    }
-
-    public void unbindArrowKeys(Component scope) {
-        scope.getElement().executeJs("""
-            if (this._wsArrowHandler) {
-                this.removeEventListener('keydown', this._wsArrowHandler);
-                delete this._wsArrowHandler;
-            }
-        """);
     }
 
     public GridWorkspace setCellSize(int width, int height) {
-        this.cellWidth = width;
-        this.cellHeight = height;
-        getElement().setProperty("cellWidth", width);
-        getElement().setProperty("cellHeight", height);
-        repositionAll();
+        grid.setCellSize(width, height);
+        relayout();
         return this;
     }
 
     public GridWorkspace setCellMargin(int margin) {
-        this.cellMargin = margin;
-        getElement().setProperty("cellMargin", margin);
-        repositionAll();
+        grid.setMargin(margin);
+        relayout();
         return this;
     }
 
-    private void repositionAll() {
-        for (Map.Entry<String, Div> entry : cells.entrySet()) {
-            String[] parts = entry.getKey().split(",");
-            int col = Integer.parseInt(parts[0]);
-            int row = Integer.parseInt(parts[1]);
-            entry.getValue().getStyle()
-                    .set("left", (col * (cellWidth + cellMargin)) + "px")
-                    .set("top", (row * (cellHeight + cellMargin)) + "px")
-                    .set("width", cellWidth + "px")
-                    .set("height", cellHeight + "px");
-        }
+    public GridCell getCurrentCell() {
+        return current;
     }
 
-    @DomEvent("workspace-cell-focused")
+    // ── Navigation ───────────────────────────────────────────────────────
+
+    public void fitToCell(int col, int row) {
+        current = new GridCell(col, row);
+        fitTo(current);
+    }
+
+    public void zoomToCell(int col, int row) {
+        current = new GridCell(col, row);
+        zoomTo(current);
+    }
+
+    public GridWorkspace setInitialCell(int col, int row) {
+        current = new GridCell(col, row);
+        setInitialFit(current);
+        return this;
+    }
+
+    public void moveLeft()  { move(Direction.LEFT); }
+    public void moveRight() { move(Direction.RIGHT); }
+    public void moveUp()    { move(Direction.UP); }
+    public void moveDown()  { move(Direction.DOWN); }
+
+    /** Pan one cell in the direction at the current scale, clamped to the occupied grid extent. */
+    public void move(Direction dir) {
+        if (itemCount() == 0) return;
+        int minCol = Integer.MAX_VALUE, maxCol = Integer.MIN_VALUE, minRow = Integer.MAX_VALUE, maxRow = Integer.MIN_VALUE;
+        for (GridCell c : keys()) {
+            minCol = Math.min(minCol, c.col()); maxCol = Math.max(maxCol, c.col());
+            minRow = Math.min(minRow, c.row()); maxRow = Math.max(maxRow, c.row());
+        }
+        int col = Math.max(minCol, Math.min(maxCol, current.col() + dir.dx));
+        int row = Math.max(minRow, Math.min(maxRow, current.row() + dir.dy));
+        current = new GridCell(col, row);
+        Rect r = grid.bounds(current);
+        centerOn(r.centerX(), r.centerY());
+    }
+
+    /** Arrow keys on {@code scope} pan the workspace by one cell. Ignored while typing in a field. */
+    public Registration bindArrowKeys(Component scope) {
+        return KeyBindings.bind(scope, List.copyOf(ARROWS.keySet()), key -> move(ARROWS.get(key)));
+    }
+
+    // ── Events ───────────────────────────────────────────────────────────
+
     public static class CellFocusedEvent extends ComponentEvent<GridWorkspace> {
         private final int col;
         private final int row;
 
-        public CellFocusedEvent(GridWorkspace source, boolean fromClient,
-                                @EventData("event.detail.col") int col,
-                                @EventData("event.detail.row") int row) {
+        public CellFocusedEvent(GridWorkspace source, boolean fromClient, int col, int row) {
             super(source, fromClient);
             this.col = col;
             this.row = row;
@@ -187,16 +122,11 @@ public class GridWorkspace extends Component implements Focusable<GridWorkspace>
 
         public int getCol() { return col; }
         public int getRow() { return row; }
+        public GridCell getCell() { return new GridCell(col, row); }
     }
 
+    /** Fired whenever the viewport settles, with the cell nearest the viewport centre. */
     public Registration addCellFocusedListener(ComponentEventListener<CellFocusedEvent> listener) {
         return addListener(CellFocusedEvent.class, listener);
-    }
-
-    public GridWorkspace setSize(String width, String height) {
-        getElement().getStyle()
-                .set("width", width)
-                .set("height", height);
-        return this;
     }
 }

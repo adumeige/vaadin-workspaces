@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.adumeige.vaadin-workspaces</groupId>
         <artifactId>vaadin-workspaces</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>1.1.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>workspace-demo</artifactId>
@@ -22,6 +22,26 @@
             <groupId>io.github.adumeige.vaadin-workspaces</groupId>
             <artifactId>workspace-component</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.adumeige.vaadin-workspaces</groupId>
+            <artifactId>workspace-doodles</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.adumeige.vaadin-workspaces</groupId>
+            <artifactId>workspace-component-karibu</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.adumeige.vaadin-workspaces</groupId>
+            <artifactId>workspace-doodles-karibu</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.mvysny.karibudsl</groupId>
+            <artifactId>karibu-dsl-v23</artifactId>
+            <version>2.6.0</version>
         </dependency>
         <dependency>
             <groupId>com.vaadin</groupId>

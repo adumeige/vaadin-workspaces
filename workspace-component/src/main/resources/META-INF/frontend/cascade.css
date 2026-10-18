@@ -1,0 +1,22 @@
+/* State styling for CascadeWorkspace. The viewport element owns position; these classes own emphasis. */
+workspace-viewport.cascade .cascade-item {
+    opacity: 0.5;
+    --ws-scale: 0.94;
+}
+workspace-viewport.cascade .cascade-item.cascade-selected {
+    opacity: 0.85;
+    --ws-scale: 1;
+}
+workspace-viewport.cascade .cascade-item.cascade-active-col {
+    opacity: 0.7;
+}
+workspace-viewport.cascade .cascade-item.cascade-active-col.cascade-selected {
+    opacity: 1;
+    --ws-scale: 1.04;
+    z-index: 1;
+    outline: 2px solid var(--lumo-primary-color, #1676f3);
+    outline-offset: 2px;
+}
+workspace-viewport.cascade:focus-visible {
+    outline: none;
+}
