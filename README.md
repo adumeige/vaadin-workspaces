@@ -7,7 +7,8 @@ pannable, zoomable viewport moves over them. One generic client element, many la
 
 - `workspace-component` — the `Workspace` base, layouts, and leaf components (Java, with one TypeScript element).
 - `workspace-doodles` — an annotation layer (circles, highlights, arrows, pen, marker, text, notes) for any workspace.
-- `workspace-demo` — a Spring Boot + Kotlin demo with one route per leaf.
+- `workspace-component-karibu`, `workspace-doodles-karibu` — [karibu-dsl](https://github.com/mvysny/karibu-dsl) builders for Kotlin.
+- `workspace-demo` — a Spring Boot + Kotlin demo written with the karibu builders, one route per leaf.
 
 ## Requirements
 
@@ -175,6 +176,41 @@ Base hooks used by the layer, available to any other layer: `Workspace.addLayer(
 `itemId(key)` / `itemKey(id)` (items carry `data-item-id`), `resolve(key, fx, fy)`, `bounds(key)`, and
 `WorkspaceLayer.onRelayout`.
 
+## Kotlin: karibu-dsl builders
+
+Two small modules make the workspaces and doodles first-class citizens of a karibu-dsl layout. They add
+no behaviour, only builders, so the Java API stays the single source of truth.
+
+```kotlin
+import org.antoined.workspace.karibu.*
+import org.antoined.workspace.doodles.karibu.*
+
+verticalLayout {
+    gridWorkspace(600, 400) {
+        setCellMargin(40)
+        cell(0, 0) { card { header = H3("First"); p("…") } }
+        cell(1, 0) { card { header = H3("Second") } }
+        doodleLayer {
+            arrow(on(GridCell(0, 0), 1.0, 0.5), on(GridCell(1, 0), 0.0, 0.5))
+            ellipse(at(300.0, 200.0), 200.0, 120.0) { color = "#3182ce"; dashed = true }
+            note(on(GridCell(1, 0), 0.6, 0.1), 220.0, 110.0, "Anchored to the second cell")
+        }
+        setInitialFitAll()
+    }
+}
+```
+
+- Workspaces: `workspace(layout)`, `gridWorkspace`, `stripWorkspace`, `freeWorkspace<K>`, `xMediaBar<C, I>`,
+  `cascadeWorkspace`, each a `HasComponents` builder returning the component.
+- Content: `cell(col, row) { … }`, `item(length) { … }`, `place(key, x, y, w, h) { … }`. The block must add
+  exactly one component, which becomes the item.
+- Renderers as blocks: `categoryRenderer { c -> div { … } }`, `itemRenderer { c, i -> … }` on `XMediaBar`;
+  `column<T> { t -> … }` and `renderer(column) { … }` on `CascadeWorkspace`.
+- Doodles: `doodleLayer(placement) { … }` on any `Workspace`; `arrow`, `ellipse`, `highlight`, `stroke`,
+  `marker`, `textHighlight`, `text`, `note` add to the layer and return the doodle; each takes an optional
+  style block (`color`, `strokeWidth`, `opacity`, `dashed`, `render`). `at(x, y)` and `on(key, fx, fy)` build
+  anchors; `doodleStyle { }` and `doodle.style { }` build styles.
+
 ## Writing your own leaf
 
 A leaf is a `Workspace<K>` subclass that picks a layout and adds behaviour. The layout only needs `bounds`:
@@ -204,10 +240,13 @@ Viewport primitives available to a leaf: `fitTo(K)`, `fitTo(Collection<K>, paddi
 
 ## Running the demo
 
+![Home: one tile per view](docs/home.png)
+
 ```sh
 mvn install
 mvn -pl workspace-demo spring-boot:run
 ```
 
-Routes: `/` grid, `/xmb` cross media bar, `/cascade` cascading columns, `/strip` strip, `/free` free canvas, `/doodles` annotation layer.
+Routes: `/` home (a grid of tiles, one per view), `/grid` grid, `/xmb` cross media bar, `/cascade` cascading columns,
+`/strip` strip, `/free` free canvas, `/doodles` annotation layer. Every view has a floating Home button in its top-left corner.
 The screenshots in `docs/` were taken from these routes at 1280×800.
