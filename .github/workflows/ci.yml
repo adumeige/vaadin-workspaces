@@ -78,6 +78,42 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Verify the actual Central bundle without uploading
+        shell: bash
+        run: |
+          mvn -B -ntp org.codehaus.mojo:versions-maven-plugin:2.22.0:set \
+            -DnewVersion=0.0.0-ci -DprocessAllModules=true -DgenerateBackupPoms=false
+          mvn -B -ntp -Pcentral-release clean deploy -pl '!workspace-demo' \
+            -Dgpg.skip=true -Dcentral.skipUpload=true
+          python3 - <<'PY'
+          from pathlib import PurePosixPath
+          from zipfile import ZipFile
+          expected = {
+              "vaadin-workspaces", "workspace-component", "workspace-doodles",
+              "workspace-component-karibu", "workspace-doodles-karibu",
+          }
+          prefix = "io/github/adumeige/vaadin-workspaces/"
+          version = "0.0.0-ci"
+          with ZipFile("target/central-publishing/central-bundle.zip") as bundle:
+              files = [name for name in bundle.namelist() if not name.endswith("/")]
+              assert files, "Central bundle is empty"
+              for name in files:
+                  path = PurePosixPath(name)
+                  assert name.startswith(prefix) and ".." not in path.parts, name
+                  parts = name[len(prefix):].split("/")
+                  assert len(parts) == 3, f"Unexpected repository metadata in bundle: {name}"
+                  artifact, actual_version, filename = parts
+                  assert artifact in expected and actual_version == version, name
+                  assert filename.startswith(f"{artifact}-{version}"), name
+              for artifact in expected:
+                  base = f"{prefix}{artifact}/{version}/{artifact}-{version}"
+                  assert f"{base}.pom" in files, f"Missing {artifact} POM"
+                  if artifact != "vaadin-workspaces":
+                      for suffix in [".jar", "-sources.jar", "-javadoc.jar"]:
+                          assert base + suffix in files, f"Missing {artifact}{suffix}"
+          print("Central bundle contains all five POMs and four libraries, with no repository metadata.")
+          PY
+
   central:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: build
