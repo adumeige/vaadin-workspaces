@@ -44,4 +44,26 @@ class CascadeLayoutTest {
         assertEquals(new Rect(0, -85, 220, 170), layout.band(0, 1, 3));
         assertEquals(new Rect(120, -25, 100, 50), layout.band(1, 1, 1));
     }
+
+    @Test
+    void selectedItemCanBeTallerAndNeighboursMakeRoom() {
+        layout.selectedItemHeight(200);
+        c1.select("b");
+        assertEquals(new Rect(120, -100, 100, 200), layout.bounds(new ColumnKey(1, "b")));
+        assertEquals(new Rect(120, -160, 100, 50), layout.bounds(new ColumnKey(1, "a")), "above: gap 10 above the selected item");
+        assertEquals(new Rect(120, 110, 100, 50), layout.bounds(new ColumnKey(1, "c")), "below: gap 10 below the selected item");
+        assertEquals(new Rect(0, -100, 100, 200), layout.bounds(new ColumnKey(0, "p")), "selections still share the anchor row centre");
+        assertEquals(new Rect(0, -160, 220, 320), layout.band(0, 1, 3));
+    }
+
+    @Test
+    void sizesCanBeSetPerColumn() {
+        layout.columnItemSize(1, 40, 300);
+        c1.select("a");
+        assertEquals(new Rect(120, -150, 100, 300), layout.bounds(new ColumnKey(1, "a")));
+        assertEquals(new Rect(120, 160, 100, 40), layout.bounds(new ColumnKey(1, "b")));
+        assertEquals(new Rect(120, 210, 100, 40), layout.bounds(new ColumnKey(1, "c")));
+        assertEquals(new Rect(0, -25, 100, 50), layout.bounds(new ColumnKey(0, "p")), "column 0 keeps the layout-wide size");
+        assertEquals(new Rect(0, -150, 220, 300), layout.band(0, 1, 1));
+    }
 }
