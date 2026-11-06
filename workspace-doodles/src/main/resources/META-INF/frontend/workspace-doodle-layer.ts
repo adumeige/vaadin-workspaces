@@ -13,6 +13,12 @@ const XHTML = 'http://www.w3.org/1999/xhtml';
 type Style = { color: string; width: number; opacity: number; dashed: boolean; render?: 'PLAIN' | 'SKETCHY' };
 type Pt = { x: number; y: number; itemId?: number };
 type Tool = 'NONE' | 'ELLIPSE' | 'RECT' | 'ARROW' | 'PEN' | 'MARKER' | 'TEXT_MARKER' | 'TEXT' | 'NOTE' | 'ERASER';
+const ARROW_ENDS = ['NONE', 'ARROW', 'DIAMOND_OPEN', 'DIAMOND_FILLED', 'CIRCLE_OPEN', 'CIRCLE_FILLED', 'TRIANGLE_OPEN', 'TRIANGLE_FILLED'] as const;
+type ArrowEnd = typeof ARROW_ENDS[number];
+function arrowEnd(value: unknown, fallback: ArrowEnd): ArrowEnd {
+    return ARROW_ENDS.includes(value as ArrowEnd) ? value as ArrowEnd : fallback;
+}
+let nextArrowMaskId = 0;
 
 interface Viewport extends HTMLElement {
     toWorkspace(cx: number, cy: number): { x: number; y: number };
@@ -21,6 +27,21 @@ interface Viewport extends HTMLElement {
 }
 
 const DEFAULT_STYLE: Style = { color: '#e53e3e', width: 3, opacity: 1, dashed: false, render: 'PLAIN' };
+
+/** Controls relative to the anchor chord, so curves rotate and resize with their anchors. */
+function arrowControls(x1: number, y1: number, x2: number, y2: number, bends: number): [Pt, Pt] {
+    const dx = x2 - x1, dy = y2 - y1;
+    const offset = bends === 2 ? 0.6 : 0.4;
+    const side = bends === 2 ? -1 : 1;
+    return [
+        { x: x1 + dx / 3 - dy * offset, y: y1 + dy / 3 + dx * offset },
+        { x: x1 + dx * 2 / 3 - dy * offset * side, y: y1 + dy * 2 / 3 + dx * offset * side },
+    ];
+}
+
+function curvePath(x1: number, y1: number, x2: number, y2: number, c1: Pt, c2: Pt): string {
+    return `M ${x1} ${y1} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${x2} ${y2}`;
+}
 
 // ── Hand-drawn rendering ─────────────────────────────────────────────────
 // A compact take on the technique popularised by rough.js (MIT): every stroke is drawn twice
@@ -59,6 +80,14 @@ class Sketch {
         let d = this.linePass(x1, y1, x2, y2, 1);
         for (let i = 1; i < passes; i++) d += ' ' + this.linePass(x1, y1, x2, y2, 0.6);
         return d;
+    }
+
+    /** Keep the anchor endpoints exact; only the curve's controls receive seeded wobble. */
+    curve(x1: number, y1: number, x2: number, y2: number, c1: Pt, c2: Pt): string {
+        const o = Math.min(Math.hypot(x2 - x1, y2 - y1) * 0.03, 6);
+        return [1, 0.6].map(scale => curvePath(x1, y1, x2, y2,
+            { x: c1.x + this.off(o * scale), y: c1.y + this.off(o * scale) },
+            { x: c2.x + this.off(o * scale), y: c2.y + this.off(o * scale) })).join(' ');
     }
 
     /** Wobbly closed ellipse, drawn twice with a small overshoot like a real pen. */
@@ -121,13 +150,15 @@ class Sketch {
 class WorkspaceDoodleLayer extends HTMLElement {
     private svg!: SVGSVGElement;
     private catcher!: SVGRectElement;
-    private defs!: SVGDefsElement;
     private shapes!: SVGGElement;
     private preview!: SVGGElement;
     private rendered = new Map<string, { json: string; el: SVGElement }>();
     private _doodles: any[] = [];
     private _tool: Tool = 'NONE';
     private _drawStyle: Style = DEFAULT_STYLE;
+    private _arrowBends = 0;
+    private _arrowStart: ArrowEnd = 'NONE';
+    private _arrowEnd: ArrowEnd = 'ARROW';
     private drawing?: { start: Pt; points: Pt[]; el?: SVGElement };
     private editor?: SVGForeignObjectElement;
     private savedDragging?: boolean;
@@ -151,6 +182,14 @@ class WorkspaceDoodleLayer extends HTMLElement {
     get drawStyle() { return this._drawStyle; }
     set drawStyle(v: Style) { this._drawStyle = { ...DEFAULT_STYLE, ...(v ?? {}) }; }
 
+    get arrowBends() { return this._arrowBends; }
+    set arrowBends(v: number) { this._arrowBends = v === 1 || v === 2 ? v : 0; }
+
+    get arrowStart() { return this._arrowStart; }
+    set arrowStart(v: ArrowEnd) { this._arrowStart = arrowEnd(v, 'NONE'); }
+    get arrowEnd() { return this._arrowEnd; }
+    set arrowEnd(v: ArrowEnd) { this._arrowEnd = arrowEnd(v, 'ARROW'); }
+
     // ── Lifecycle ────────────────────────────────────────────────────────
 
     connectedCallback() {
@@ -169,7 +208,6 @@ class WorkspaceDoodleLayer extends HTMLElement {
             this.svg.style.position = 'absolute';
             this.svg.style.left = '0';
             this.svg.style.top = '0';
-            this.defs = document.createElementNS(SVG, 'defs');
             // The root svg is 1x1 and only receives events inside its box, so a huge transparent
             // rect catches pointer events over the whole surface while a drawing tool is active.
             this.catcher = document.createElementNS(SVG, 'rect');
@@ -180,7 +218,7 @@ class WorkspaceDoodleLayer extends HTMLElement {
             this.shapes = document.createElementNS(SVG, 'g');
             this.preview = document.createElementNS(SVG, 'g');
             this.preview.style.pointerEvents = 'none';
-            this.svg.append(this.defs, this.catcher, this.shapes, this.preview);
+            this.svg.append(this.catcher, this.shapes, this.preview);
             this.appendChild(this.svg);
         }
         this.svg.addEventListener('pointerdown', this.onPointerDown);
@@ -242,7 +280,7 @@ class WorkspaceDoodleLayer extends HTMLElement {
         else switch (d.type) {
             case 'ellipse': el = this.ellipse(d.cx, d.cy, d.rx, d.ry, s); break;
             case 'rect': el = this.rect(d.x, d.y, d.w, d.h, s); break;
-            case 'arrow': el = this.arrow(d.x1, d.y1, d.x2, d.y2, s); break;
+            case 'arrow': el = this.arrow(d.x1, d.y1, d.x2, d.y2, s, d.bends, d.startEnd, d.endEnd); break;
             case 'stroke': el = this.path(d.points, s, false); break;
             case 'marker': el = this.path(d.points, s, true); break;
             case 'textHighlight': {
@@ -259,8 +297,8 @@ class WorkspaceDoodleLayer extends HTMLElement {
         el.setAttribute('data-doodle-id', d.id);
         el.setAttribute('data-doodle-type', d.type);
         if (s.render === 'SKETCHY') el.setAttribute('data-doodle-render', 'sketchy');
-        (el as HTMLElement).style.pointerEvents = 'auto';
-        (el as HTMLElement).style.cursor = 'pointer';
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'pointer';
         return el;
     }
 
@@ -284,16 +322,8 @@ class WorkspaceDoodleLayer extends HTMLElement {
                 g.appendChild(this.sketchPath(sk.hachure(d.x, d.y, d.w, d.h, Math.max(6, s.width * 3)), s, Math.min(1, s.opacity * 2), 1.5));
                 g.appendChild(this.sketchPath(sk.rectOutline(d.x, d.y, d.w, d.h), s, Math.min(1, s.opacity * 2), 1.5));
                 break;
-            case 'arrow': {
-                g.appendChild(this.sketchPath(sk.line(d.x1, d.y1, d.x2, d.y2), s));
-                const ang = Math.atan2(d.y2 - d.y1, d.x2 - d.x1);
-                const len = Math.min(24, Math.max(10, Math.hypot(d.x2 - d.x1, d.y2 - d.y1) * 0.15));
-                for (const side of [-1, 1]) {
-                    const a = ang + Math.PI + side * 0.45;
-                    g.appendChild(this.sketchPath(sk.line(d.x2, d.y2, d.x2 + Math.cos(a) * len, d.y2 + Math.sin(a) * len), s));
-                }
-                break;
-            }
+            case 'arrow':
+                return this.arrow(d.x1, d.y1, d.x2, d.y2, s, d.bends, d.startEnd, d.endEnd, sk);
             case 'stroke':
                 g.appendChild(this.sketchPath(sk.polyline(d.points ?? [], 0.8), s));
                 g.appendChild(this.sketchPath(sk.polyline(d.points ?? [], 1.6), s, s.opacity * 0.35, s.width * 0.7));
@@ -366,34 +396,116 @@ class WorkspaceDoodleLayer extends HTMLElement {
         return r;
     }
 
-    private arrow(x1: number, y1: number, x2: number, y2: number, s: Style) {
+    private arrow(x1: number, y1: number, x2: number, y2: number, s: Style, bends = 0,
+                  startEnd: ArrowEnd = 'NONE', endEnd: ArrowEnd = 'ARROW', sk?: Sketch) {
         const g = document.createElementNS(SVG, 'g');
-        const line = document.createElementNS(SVG, 'line');
-        line.setAttribute('x1', String(x1)); line.setAttribute('y1', String(y1));
-        line.setAttribute('x2', String(x2)); line.setAttribute('y2', String(y2));
-        this.outline(line, s);
-        line.setAttribute('marker-end', `url(#${this.markerFor(s.color)})`);
+        g.setAttribute('opacity', String(s.opacity));
+        const ink = { ...s, opacity: 1 };
+        const curved = bends === 1 || bends === 2;
+        const [c1, c2] = arrowControls(x1, y1, x2, y2, bends);
+        const line = document.createElementNS(SVG, sk || curved ? 'path' : 'line');
+        if (sk) {
+            // Fixed endpoints prevent rough strokes from poking beyond end decorations.
+            line.setAttribute('d', curved ? sk.curve(x1, y1, x2, y2, c1, c2)
+                : sk.curve(x1, y1, x2, y2,
+                    { x: x1 + (x2 - x1) / 3, y: y1 + (y2 - y1) / 3 },
+                    { x: x1 + (x2 - x1) * 2 / 3, y: y1 + (y2 - y1) * 2 / 3 }));
+        } else if (curved) {
+            line.setAttribute('d', curvePath(x1, y1, x2, y2, c1, c2));
+        } else {
+            line.setAttribute('x1', String(x1)); line.setAttribute('y1', String(y1));
+            line.setAttribute('x2', String(x2)); line.setAttribute('y2', String(y2));
+        }
+        this.outline(line, ink);
         g.appendChild(line);
+        const size = sk ? Math.min(24, Math.max(10, Math.hypot(x2 - x1, y2 - y1) * 0.15)) : Math.max(10, s.width * 5);
+        // Only the shaft is masked, keeping hollow ends transparent over any workspace content.
+        const mask = document.createElementNS(SVG, 'mask');
+        mask.id = `doodle-arrow-mask-${++nextArrowMaskId}`;
+        mask.setAttribute('maskUnits', 'userSpaceOnUse');
+        mask.setAttribute('maskContentUnits', 'userSpaceOnUse');
+        mask.style.maskType = 'luminance';
+        const pad = size + s.width + 10;
+        const bounds = {
+            x: Math.min(x1, x2, c1.x, c2.x) - pad, y: Math.min(y1, y2, c1.y, c2.y) - pad,
+            width: Math.max(x1, x2, c1.x, c2.x) - Math.min(x1, x2, c1.x, c2.x) + pad * 2,
+            height: Math.max(y1, y2, c1.y, c2.y) - Math.min(y1, y2, c1.y, c2.y) + pad * 2,
+        };
+        const background = document.createElementNS(SVG, 'rect');
+        for (const [key, value] of Object.entries(bounds)) {
+            mask.setAttribute(key, String(value));
+            background.setAttribute(key, String(value));
+        }
+        background.setAttribute('fill', 'white');
+        mask.appendChild(background);
+        const ends: [ArrowEnd, number, number, number][] = [
+            [arrowEnd(startEnd, 'NONE'), x1, y1, Math.atan2(y1 - (curved ? c1.y : y2), x1 - (curved ? c1.x : x2))],
+            [arrowEnd(endEnd, 'ARROW'), x2, y2, Math.atan2(y2 - (curved ? c2.y : y1), x2 - (curved ? c2.x : x1))],
+        ];
+        for (const [index, [kind, x, y, angle]] of ends.entries()) {
+            if (kind === 'NONE') continue;
+            const decoration = this.arrowDecoration(kind, size, ink, sk);
+            const transform = `translate(${x} ${y}) rotate(${angle * 180 / Math.PI})`;
+            decoration.el.setAttribute('transform', transform);
+            decoration.el.setAttribute('data-arrow-end', index === 0 ? 'start' : 'end');
+            decoration.el.setAttribute('data-arrow-end-kind', kind);
+            g.appendChild(decoration.el);
+            if (decoration.silhouette) {
+                decoration.silhouette.setAttribute('transform', transform);
+                mask.appendChild(decoration.silhouette);
+            }
+        }
+        if (mask.childElementCount > 1) {
+            const defs = document.createElementNS(SVG, 'defs');
+            defs.appendChild(mask);
+            g.appendChild(defs);
+            line.setAttribute('mask', `url(#${mask.id})`);
+        }
         return g;
     }
 
-    private markerFor(color: string): string {
-        const id = 'doodle-arrow-' + color.replace(/[^a-zA-Z0-9]/g, '');
-        if (!this.defs.querySelector('#' + id)) {
-            const m = document.createElementNS(SVG, 'marker');
-            m.id = id;
-            m.setAttribute('viewBox', '0 0 10 10');
-            m.setAttribute('refX', '8'); m.setAttribute('refY', '5');
-            m.setAttribute('markerWidth', '5'); m.setAttribute('markerHeight', '5');
-            m.setAttribute('orient', 'auto-start-reverse');
-            m.setAttribute('markerUnits', 'strokeWidth');
-            const p = document.createElementNS(SVG, 'path');
-            p.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-            p.setAttribute('fill', color);
-            m.appendChild(p);
-            this.defs.appendChild(m);
+    /** End geometry points out along +x, with its tip exactly at the anchor. */
+    private arrowDecoration(kind: ArrowEnd, size: number, s: Style, sk?: Sketch) {
+        const el = document.createElementNS(SVG, 'g');
+        const openArrow = kind === 'ARROW' && !!sk;
+        const circle = kind.startsWith('CIRCLE');
+        const diamond = kind.startsWith('DIAMOND');
+        const filled = kind.endsWith('_FILLED') || (kind === 'ARROW' && !sk);
+        const pts: [number, number][] = diamond
+            ? [[0, 0], [-size / 2, size / 2], [-size, 0], [-size / 2, -size / 2]]
+            : [[0, 0], [-size, size / 2], [-size, -size / 2]];
+        const r = size / 2;
+        const d = circle ? `M 0 0 A ${r} ${r} 0 1 0 ${-size} 0 A ${r} ${r} 0 1 0 0 0 Z`
+            : `M ${pts.map(p => p.join(' ')).join(' L ')} Z`;
+        let silhouette: SVGPathElement | undefined;
+        if (!openArrow) {
+            silhouette = document.createElementNS(SVG, 'path');
+            silhouette.setAttribute('d', d);
+            silhouette.setAttribute('fill', 'black');
+            if (sk || kind !== 'ARROW') {
+                silhouette.setAttribute('stroke', 'black');
+                silhouette.setAttribute('stroke-width', String(s.width));
+                silhouette.setAttribute('vector-effect', 'non-scaling-stroke');
+            }
         }
-        return id;
+        if (filled) {
+            const fill = document.createElementNS(SVG, 'path');
+            fill.setAttribute('d', d);
+            fill.setAttribute('fill', s.color);
+            el.appendChild(fill);
+        }
+        // End outlines stay solid even when the connecting shaft is dashed.
+        const solid = { ...s, dashed: false };
+        if (sk) {
+            const outline = openArrow
+                ? [-1, 1].map(side => sk.line(0, 0, -Math.cos(0.45) * size, side * Math.sin(0.45) * size)).join(' ')
+                : circle ? sk.ellipse(-r, 0, r, r)
+                : pts.map((p, i) => { const q = pts[(i + 1) % pts.length]; return sk.line(p[0], p[1], q[0], q[1]); }).join(' ');
+            el.appendChild(this.sketchPath(outline, solid));
+        } else if (kind !== 'ARROW') {
+            el.appendChild(this.sketchPath(d, solid));
+        }
+        return { el, silhouette };
     }
 
     private path(points: Pt[], s: Style, marker: boolean) {
@@ -526,7 +638,7 @@ class WorkspaceDoodleLayer extends HTMLElement {
                     Math.abs(p.x - d.start.x), Math.abs(p.y - d.start.y), s));
                 break;
             case 'ARROW':
-                this.preview.appendChild(this.arrow(d.start.x, d.start.y, p.x, p.y, s));
+                this.preview.appendChild(this.arrow(d.start.x, d.start.y, p.x, p.y, s, this._arrowBends, this._arrowStart, this._arrowEnd));
                 break;
             case 'PEN':
             case 'MARKER': {
@@ -560,7 +672,7 @@ class WorkspaceDoodleLayer extends HTMLElement {
                 break;
             case 'ARROW':
                 if (tiny) break;
-                this.emit({ type: 'arrow', from: d.start, to: end });
+                this.emit({ type: 'arrow', from: d.start, to: end, bends: this._arrowBends, startEnd: this._arrowStart, endEnd: this._arrowEnd });
                 break;
             case 'PEN':
                 if (d.points.length > 1) this.emit({ type: 'stroke', points: d.points });

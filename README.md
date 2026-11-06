@@ -159,6 +159,18 @@ layer.addDoodleAddedListener(e -> save(e.getDoodle()));
 ```
 
 - Doodles: `Ellipse`, `HighlightRect`, `Arrow`, `Stroke` (pen), `Marker`, `TextHighlight`, `Text`, `Note`.
+- Arrows default to straight. Use `Doodle.arrow(from, to, 1)` for an arc or `Doodle.arrow(from, to, 2)`
+  for an S-curve, or copy an arrow with `arrow.withBends(1)`. Curves follow both anchors and support
+  plain and sketchy rendering. `layer.setArrowBends(1)` selects the shape of newly drawn arrows (0, 1, or 2);
+  the demo exposes this as **Arrow bends**. Kotlin builders accept `arrow(from, to, bends = 2) { … }`.
+- Configure arrow ends independently with `arrow.withEnds(ArrowEnd.CIRCLE_OPEN, ArrowEnd.DIAMOND_FILLED)`.
+  `ArrowEnd` offers `NONE`, `ARROW` (the original mode-specific arrowhead), and `DIAMOND_OPEN`,
+  `DIAMOND_FILLED`, `CIRCLE_OPEN`, `CIRCLE_FILLED`, `TRIANGLE_OPEN`, `TRIANGLE_FILLED`.
+  Hollow shapes are transparent, and decorations follow the tangent of curved arrows. Existing arrows
+  default to `NONE` at the start and `ARROW` at the end. For new drawings use
+  `layer.setArrowStart(ArrowEnd.NONE)` and `layer.setArrowEnd(ArrowEnd.TRIANGLE_OPEN)` or the demo's
+  **Arrow start** / **Arrow end** selectors. Kotlin supports
+  `arrow(from, to, startEnd = ArrowEnd.CIRCLE_OPEN, endEnd = ArrowEnd.TRIANGLE_FILLED, bends = 1)`.
 - Anchors: `Anchor.at(x, y)` is absolute; `Anchor.on(key, fx, fy)` is a fraction of an item's bounds and
   follows the item when the workspace relayouts (the base notifies layers through `WorkspaceLayer`).
   User-drawn points that start on an item are anchored to it unless `setAnchorToItems(false)`.
@@ -248,13 +260,34 @@ mvn install
 mvn -pl workspace-demo spring-boot:run
 ```
 
+To use another port (for example, when 8080 is occupied):
+
+```sh
+mvn -pl workspace-demo spring-boot:run -Dspring-boot.run.arguments="--server.port=8081"
+```
+
+The demo uses [Vaadin-managed Node.js and npm](https://vaadin.com/docs/v24/flow/configuration/development-mode/node-js)
+for both Maven builds and development startup. This avoids incompatible global installations, such as
+npm 12 rejecting Vaadin 24's `--scripts-prepend-node-path` flag. The first frontend build may download
+the tools and npm dependencies.
+
+Build and run the production demo from the repository root:
+
+```sh
+mvn -Pproduction package
+java -jar workspace-demo/target/workspace-demo-1.1.2-SNAPSHOT.jar --server.port=8081
+```
+
+When switching back from a production build to development mode, clear the demo's generated build
+metadata with `mvn -pl workspace-demo clean` before running `spring-boot:run`.
+
 Routes: `/` home (a grid of tiles, one per view), `/grid` grid, `/xmb` cross media bar, `/cascade` cascading columns,
 `/strip` strip, `/free` free canvas, `/doodles` annotation layer. Every view has a floating Home button in its top-left corner.
 The screenshots in `docs/` were taken from these routes at 1280×800.
 
 ## Maven Central
 
-The release workflow defaults to `1.1.0`, matching the current `1.1.0-SNAPSHOT` development line.
+The current development version is `1.1.2-SNAPSHOT`; release versions omit the `-SNAPSHOT` suffix.
 After publication, these artifacts are available from Maven Central without credentials or a custom repository:
 
 | Group ID | Artifact ID |

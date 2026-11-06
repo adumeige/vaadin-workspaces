@@ -18,6 +18,7 @@ import com.vaadin.flow.router.Route
 import kotlinx.css.background
 import io.github.adumeige.vaadin.workspaces.GridWorkspace
 import io.github.adumeige.vaadin.workspaces.doodles.DoodleLayer
+import io.github.adumeige.vaadin.workspaces.doodles.ArrowEnd
 import io.github.adumeige.vaadin.workspaces.doodles.DoodleTool
 import io.github.adumeige.vaadin.workspaces.doodles.RenderMode
 import io.github.adumeige.vaadin.workspaces.doodles.karibu.arrow
@@ -99,6 +100,35 @@ class DoodlesView : KComposite() {
                 }
                 checkBox("Sketchy") {
                     addValueChangeListener { doodles.setRenderMode(if (it.value) RenderMode.SKETCHY else RenderMode.PLAIN) }
+                }
+                select<Int> {
+                    label = "Arrow bends"
+                    setItems(0, 1, 2)
+                    setItemLabelGenerator { when (it) { 1 -> "1 bend (arc)"; 2 -> "2 bends (S-curve)"; else -> "Straight" } }
+                    value = 0
+                    addValueChangeListener { doodles.setArrowBends(it.value) }
+                }
+                for (start in listOf(true, false)) {
+                    select<ArrowEnd> {
+                        label = if (start) "Arrow start" else "Arrow end"
+                        setItems(ArrowEnd.values().toList())
+                        setItemLabelGenerator {
+                            when (it) {
+                                ArrowEnd.NONE -> "None"
+                                ArrowEnd.ARROW -> "Usual arrow"
+                                ArrowEnd.DIAMOND_OPEN -> "Diamond (empty)"
+                                ArrowEnd.DIAMOND_FILLED -> "Diamond (filled)"
+                                ArrowEnd.CIRCLE_OPEN -> "Circle (empty)"
+                                ArrowEnd.CIRCLE_FILLED -> "Circle (filled)"
+                                ArrowEnd.TRIANGLE_OPEN -> "Triangle (empty)"
+                                ArrowEnd.TRIANGLE_FILLED -> "Triangle (filled)"
+                            }
+                        }
+                        value = if (start) doodles.arrowStart else doodles.arrowEnd
+                        addValueChangeListener {
+                            if (start) doodles.setArrowStart(it.value) else doodles.setArrowEnd(it.value)
+                        }
+                    }
                 }
                 button("Undo") { onClick { doodles.undo() } }
                 button("Clear") { onClick { doodles.clear() } }

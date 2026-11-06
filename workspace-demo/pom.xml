@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.adumeige.vaadin-workspaces</groupId>
         <artifactId>vaadin-workspaces</artifactId>
-        <version>1.1.1-SNAPSHOT</version>
+        <version>1.1.2-SNAPSHOT</version>
     </parent>
 
     <artifactId>workspace-demo</artifactId>
@@ -132,6 +132,10 @@
                 <groupId>com.vaadin</groupId>
                 <artifactId>vaadin-maven-plugin</artifactId>
                 <version>${vaadin.version}</version>
+                <configuration>
+                    <!-- Keep the frontend toolchain compatible with Vaadin, independent of PATH. -->
+                    <requireHomeNodeExec>true</requireHomeNodeExec>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

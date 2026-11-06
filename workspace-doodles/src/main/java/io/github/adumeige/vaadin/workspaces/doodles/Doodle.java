@@ -3,6 +3,7 @@ package io.github.adumeige.vaadin.workspaces.doodles;
 import io.github.adumeige.vaadin.workspaces.Rect;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /** An annotation on the surface. Geometry is expressed through {@link Anchor}s. */
@@ -25,8 +26,21 @@ public sealed interface Doodle permits
         public HighlightRect withStyle(DoodleStyle s) { return new HighlightRect(id, s, from, to); }
     }
 
-    record Arrow(String id, DoodleStyle style, Anchor from, Anchor to) implements Doodle {
-        public Arrow withStyle(DoodleStyle s) { return new Arrow(id, s, from, to); }
+    /** Arrow with 0 (straight), 1 (arc), or 2 (S-curve) bends between its anchors. */
+    record Arrow(String id, DoodleStyle style, Anchor from, Anchor to, int bends,
+                 ArrowEnd startEnd, ArrowEnd endEnd) implements Doodle {
+        public Arrow {
+            if (bends < 0 || bends > 2) throw new IllegalArgumentException("Arrow bends must be 0, 1, or 2");
+            Objects.requireNonNull(startEnd, "startEnd");
+            Objects.requireNonNull(endEnd, "endEnd");
+        }
+        public Arrow(String id, DoodleStyle style, Anchor from, Anchor to, int bends) {
+            this(id, style, from, to, bends, ArrowEnd.NONE, ArrowEnd.ARROW);
+        }
+        public Arrow(String id, DoodleStyle style, Anchor from, Anchor to) { this(id, style, from, to, 0); }
+        public Arrow withStyle(DoodleStyle s) { return new Arrow(id, s, from, to, bends, startEnd, endEnd); }
+        public Arrow withBends(int bends) { return new Arrow(id, style, from, to, bends, startEnd, endEnd); }
+        public Arrow withEnds(ArrowEnd startEnd, ArrowEnd endEnd) { return new Arrow(id, style, from, to, bends, startEnd, endEnd); }
     }
 
     /** Freehand pen stroke, constant width under zoom. */
@@ -58,6 +72,7 @@ public sealed interface Doodle permits
     static Ellipse ellipse(Anchor center, double rx, double ry) { return new Ellipse(newId(), DoodleStyle.DEFAULT, center, rx, ry); }
     static HighlightRect highlight(Anchor from, Anchor to) { return new HighlightRect(newId(), DoodleStyle.HIGHLIGHT, from, to); }
     static Arrow arrow(Anchor from, Anchor to) { return new Arrow(newId(), DoodleStyle.DEFAULT, from, to); }
+    static Arrow arrow(Anchor from, Anchor to, int bends) { return new Arrow(newId(), DoodleStyle.DEFAULT, from, to, bends); }
     static Stroke stroke(List<Anchor> points) { return new Stroke(newId(), DoodleStyle.DEFAULT, points); }
     static Marker marker(List<Anchor> points) { return new Marker(newId(), DoodleStyle.MARKER, points); }
     static TextHighlight textHighlight(Object itemKey, List<Rect> rects) { return new TextHighlight(newId(), DoodleStyle.HIGHLIGHT, itemKey, rects); }

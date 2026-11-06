@@ -47,6 +47,100 @@ class DoodleJsonTest {
     }
 
     @Test
+    void curvedClientArrowsKeepBendsThroughRestylingAndRelayout() {
+        for (int bends : new int[]{1, 2}) {
+            JsonObject input = Json.createObject();
+            input.put("type", "arrow");
+            input.put("from", point(50, 25, 1));
+            input.put("to", point(150, 25, 2));
+            input.put("bends", bends);
+            grid.setMargin(0);
+            Doodle.Arrow arrow = (Doodle.Arrow) json.fromClient(input, true).orElseThrow();
+            assertEquals(bends, arrow.bends());
+            arrow = arrow.withStyle(arrow.style().withRender(RenderMode.SKETCHY));
+            grid.setMargin(20);
+            JsonObject output = json.toJson(arrow);
+            assertEquals(bends, output.getNumber("bends"));
+            assertEquals(50, output.getNumber("x1"));
+            assertEquals(170, output.getNumber("x2"));
+            assertEquals("SKETCHY", output.getObject("style").getString("render"));
+        }
+    }
+
+    @Test
+    void arrowBendsDefaultToStraightAndValidateApiInput() {
+        Anchor from = Anchor.at(0, 0), to = Anchor.at(100, 50);
+        assertEquals(0, Doodle.arrow(from, to).bends());
+        assertEquals(0, new Doodle.Arrow("old", DoodleStyle.DEFAULT, from, to).bends());
+        assertEquals(1, Doodle.arrow(from, to, 1).bends());
+        assertEquals(2, Doodle.arrow(from, to).withBends(2).bends());
+        assertThrows(IllegalArgumentException.class, () -> Doodle.arrow(from, to, -1));
+        assertThrows(IllegalArgumentException.class, () -> Doodle.arrow(from, to).withBends(3));
+
+        JsonObject input = Json.createObject();
+        input.put("type", "arrow");
+        input.put("from", point(0, 0, null));
+        input.put("to", point(100, 50, null));
+        assertEquals(0, ((Doodle.Arrow) json.fromClient(input, false).orElseThrow()).bends());
+        for (double invalid : new double[]{-1, 3, 1.5}) {
+            input.put("bends", invalid);
+            assertEquals(0, ((Doodle.Arrow) json.fromClient(input, false).orElseThrow()).bends());
+        }
+        input.put("bends", "invalid");
+        assertEquals(0, ((Doodle.Arrow) json.fromClient(input, false).orElseThrow()).bends());
+    }
+
+    @Test
+    void arrowEndsSurviveClientParsingRestylingAndRelayout() {
+        for (ArrowEnd start : ArrowEnd.values()) for (ArrowEnd end : ArrowEnd.values()) {
+            grid.setMargin(0);
+            JsonObject input = Json.createObject();
+            input.put("type", "arrow");
+            input.put("from", point(50, 25, 1));
+            input.put("to", point(150, 25, 2));
+            input.put("startEnd", start.name());
+            input.put("endEnd", end.name());
+            Doodle.Arrow arrow = ((Doodle.Arrow) json.fromClient(input, true).orElseThrow())
+                    .withBends(2).withStyle(DoodleStyle.DEFAULT.withRender(RenderMode.SKETCHY));
+            assertEquals(start, arrow.startEnd());
+            assertEquals(end, arrow.endEnd());
+            grid.setMargin(20);
+            JsonObject output = json.toJson(arrow);
+            assertEquals(start.name(), output.getString("startEnd"));
+            assertEquals(end.name(), output.getString("endEnd"));
+            assertEquals(2, output.getNumber("bends"));
+            assertEquals(170, output.getNumber("x2"));
+        }
+    }
+
+    @Test
+    void arrowEndsHaveCompatibleDefaultsAndRejectNullApiValues() {
+        Anchor from = Anchor.at(0, 0), to = Anchor.at(100, 50);
+        Doodle.Arrow original = new Doodle.Arrow("old", DoodleStyle.DEFAULT, from, to);
+        assertEquals(ArrowEnd.NONE, original.startEnd());
+        assertEquals(ArrowEnd.ARROW, original.endEnd());
+        Doodle.Arrow decorated = original.withBends(1).withEnds(ArrowEnd.CIRCLE_OPEN, ArrowEnd.DIAMOND_FILLED);
+        assertEquals(original.id(), decorated.id());
+        assertEquals(1, decorated.bends());
+        assertEquals(ArrowEnd.CIRCLE_OPEN, decorated.startEnd());
+        assertEquals(ArrowEnd.DIAMOND_FILLED, decorated.endEnd());
+        assertThrows(NullPointerException.class, () -> original.withEnds(null, ArrowEnd.NONE));
+        assertThrows(NullPointerException.class, () -> original.withEnds(ArrowEnd.NONE, null));
+
+        JsonObject input = Json.createObject();
+        input.put("type", "arrow");
+        input.put("from", point(0, 0, null));
+        input.put("to", point(100, 50, null));
+        for (int variant = 0; variant < 3; variant++) {
+            if (variant == 1) { input.put("startEnd", "unknown"); input.put("endEnd", "unknown"); }
+            if (variant == 2) { input.put("startEnd", 1); input.put("endEnd", Json.createNull()); }
+            Doodle.Arrow parsed = (Doodle.Arrow) json.fromClient(input, false).orElseThrow();
+            assertEquals(ArrowEnd.NONE, parsed.startEnd());
+            assertEquals(ArrowEnd.ARROW, parsed.endEnd());
+        }
+    }
+
+    @Test
     void unresolvableAnchorDropsTheDoodle() {
         Doodle d = Doodle.ellipse(Anchor.on(new GridCell(9, 9), 0.5, 0.5), 10, 10);
         assertNull(json.toJson(d));

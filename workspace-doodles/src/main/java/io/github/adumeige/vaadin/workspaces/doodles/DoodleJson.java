@@ -65,6 +65,9 @@ public final class DoodleJson {
                 o.put("type", "arrow");
                 Point f = point(a.from()), t = point(a.to());
                 o.put("x1", f.x()); o.put("y1", f.y()); o.put("x2", t.x()); o.put("y2", t.y());
+                o.put("bends", a.bends());
+                o.put("startEnd", a.startEnd().name());
+                o.put("endEnd", a.endEnd().name());
             } else if (d instanceof Doodle.Stroke s) {
                 o.put("type", "stroke"); o.put("points", points(s.points()));
             } else if (d instanceof Doodle.Marker m) {
@@ -158,7 +161,8 @@ public final class DoodleJson {
         return Optional.ofNullable(switch (type) {
             case "ellipse" -> new Doodle.Ellipse(id, style, anchor(o.getObject("center"), anchorToItems), o.getNumber("rx"), o.getNumber("ry"));
             case "rect" -> new Doodle.HighlightRect(id, style, anchor(o.getObject("from"), anchorToItems), anchor(o.getObject("to"), anchorToItems));
-            case "arrow" -> new Doodle.Arrow(id, style, anchor(o.getObject("from"), anchorToItems), anchor(o.getObject("to"), anchorToItems));
+            case "arrow" -> new Doodle.Arrow(id, style, anchor(o.getObject("from"), anchorToItems), anchor(o.getObject("to"), anchorToItems), arrowBends(o),
+                    arrowEnd(o, "startEnd", ArrowEnd.NONE), arrowEnd(o, "endEnd", ArrowEnd.ARROW));
             case "stroke" -> new Doodle.Stroke(id, style, anchors(o.getArray("points"), anchorToItems));
             case "marker" -> new Doodle.Marker(id, style, anchors(o.getArray("points"), anchorToItems));
             case "textHighlight" -> textHighlight(id, style, o);
@@ -166,6 +170,19 @@ public final class DoodleJson {
             case "note" -> new Doodle.Note(id, style, anchor(o.getObject("at"), anchorToItems), o.getNumber("w"), o.getNumber("h"), o.getString("text"));
             default -> null;
         });
+    }
+
+    private static int arrowBends(JsonObject o) {
+        if (!o.hasKey("bends") || o.get("bends").getType() != elemental.json.JsonType.NUMBER) return 0;
+        double bends = o.getNumber("bends");
+        return bends == 1 || bends == 2 ? (int) bends : 0;
+    }
+
+    private static ArrowEnd arrowEnd(JsonObject o, String key, ArrowEnd fallback) {
+        if (o.hasKey(key) && o.get(key).getType() == elemental.json.JsonType.STRING) {
+            try { return ArrowEnd.valueOf(o.getString(key)); } catch (IllegalArgumentException ignored) { }
+        }
+        return fallback;
     }
 
     private Doodle textHighlight(String id, DoodleStyle style, JsonObject o) {

@@ -5,6 +5,7 @@ import io.github.adumeige.vaadin.workspaces.Placement
 import io.github.adumeige.vaadin.workspaces.Rect
 import io.github.adumeige.vaadin.workspaces.Workspace
 import io.github.adumeige.vaadin.workspaces.doodles.Anchor
+import io.github.adumeige.vaadin.workspaces.doodles.ArrowEnd
 import io.github.adumeige.vaadin.workspaces.doodles.Doodle
 import io.github.adumeige.vaadin.workspaces.doodles.DoodleLayer
 import io.github.adumeige.vaadin.workspaces.doodles.DoodleStyle
@@ -62,6 +63,18 @@ fun DoodleLayer<*>.highlight(from: Anchor, to: Anchor, block: DoodleStyleBuilder
 @VaadinDsl
 fun DoodleLayer<*>.arrow(from: Anchor, to: Anchor, block: DoodleStyleBuilder.() -> Unit = {}): Doodle.Arrow =
     Doodle.arrow(from, to).style(block).also { add(it) }
+
+/** An arc (1 bend) or S-curve (2 bends) that follows both anchors. */
+@VaadinDsl
+fun DoodleLayer<*>.arrow(from: Anchor, to: Anchor, bends: Int, block: DoodleStyleBuilder.() -> Unit = {}): Doodle.Arrow =
+    Doodle.arrow(from, to, bends).style(block).also { add(it) }
+
+/** Independently decorated ends, optionally on an arc or S-curve. */
+@VaadinDsl
+fun DoodleLayer<*>.arrow(
+    from: Anchor, to: Anchor, startEnd: ArrowEnd, endEnd: ArrowEnd = ArrowEnd.ARROW,
+    bends: Int = 0, block: DoodleStyleBuilder.() -> Unit = {},
+): Doodle.Arrow = Doodle.arrow(from, to, bends).withEnds(startEnd, endEnd).style(block).also { add(it) }
 
 @VaadinDsl
 fun DoodleLayer<*>.stroke(points: List<Anchor>, block: DoodleStyleBuilder.() -> Unit = {}): Doodle.Stroke =

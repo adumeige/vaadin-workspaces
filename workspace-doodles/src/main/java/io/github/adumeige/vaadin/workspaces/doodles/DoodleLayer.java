@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 
 /**
  * An annotation layer over (or under) a workspace's items. Holds the doodle model on the server,
@@ -39,6 +40,9 @@ public class DoodleLayer<K> extends Component implements WorkspaceLayer<K> {
     private DoodleTool tool = DoodleTool.NONE;
     private DoodleStyle drawStyle = DoodleStyle.DEFAULT;
     private RenderMode renderMode = RenderMode.PLAIN;
+    private int arrowBends;
+    private ArrowEnd arrowStart = ArrowEnd.NONE;
+    private ArrowEnd arrowEnd = ArrowEnd.ARROW;
     private boolean anchorToItems = true;
 
     public DoodleLayer(Workspace<K> workspace, Placement placement) {
@@ -46,6 +50,9 @@ public class DoodleLayer<K> extends Component implements WorkspaceLayer<K> {
         this.json = new DoodleJson(new WorkspaceResolver());
         workspace.addLayer(this, placement);
         getElement().setProperty("tool", tool.name());
+        getElement().setProperty("arrowBends", arrowBends);
+        getElement().setProperty("arrowStart", arrowStart.name());
+        getElement().setProperty("arrowEnd", arrowEnd.name());
         getElement().setPropertyJson("drawStyle", DoodleJson.style(drawStyle));
 
         getElement().addEventListener("doodle-drawn", e -> {
@@ -149,6 +156,33 @@ public class DoodleLayer<K> extends Component implements WorkspaceLayer<K> {
     }
 
     public DoodleStyle getDrawStyle() { return drawStyle; }
+
+    public int getArrowBends() { return arrowBends; }
+
+    public ArrowEnd getArrowStart() { return arrowStart; }
+    public ArrowEnd getArrowEnd() { return arrowEnd; }
+
+    /** Start decoration for newly drawn arrows (default {@link ArrowEnd#NONE}). */
+    public DoodleLayer<K> setArrowStart(ArrowEnd end) {
+        arrowStart = Objects.requireNonNull(end, "end");
+        getElement().setProperty("arrowStart", end.name());
+        return this;
+    }
+
+    /** End decoration for newly drawn arrows (default {@link ArrowEnd#ARROW}). */
+    public DoodleLayer<K> setArrowEnd(ArrowEnd end) {
+        arrowEnd = Objects.requireNonNull(end, "end");
+        getElement().setProperty("arrowEnd", end.name());
+        return this;
+    }
+
+    /** Shape of the next arrow drawn: 0 (straight, default), 1 (arc), or 2 (S-curve). */
+    public DoodleLayer<K> setArrowBends(int bends) {
+        if (bends < 0 || bends > 2) throw new IllegalArgumentException("Arrow bends must be 0, 1, or 2");
+        this.arrowBends = bends;
+        getElement().setProperty("arrowBends", bends);
+        return this;
+    }
 
     /** Style applied to the next doodle drawn by the user. */
     public DoodleLayer<K> setDrawStyle(DoodleStyle style) {
